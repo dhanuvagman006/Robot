@@ -25,11 +25,8 @@ fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-# Install dependencies if Flask is missing
-if ! python -m pip show flask >/dev/null 2>&1; then
-  echo "[run.sh] Installing dependencies ..."
-  pip install -r "$ROOT_DIR/requirements.txt"
-fi
+echo "[run.sh] Installing/updating Python dependencies ..."
+pip install -r "$ROOT_DIR/requirements.txt"
 
 export HOST
 export PORT

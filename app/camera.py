@@ -1,6 +1,7 @@
 import cv2
 import threading
 import time
+from typing import Optional
 
 
 class Camera:
@@ -15,11 +16,16 @@ class Camera:
         self.lock = threading.Lock()
         self.running = False
         self.thread = None
+        self._frame_np: Optional[object] = None  # ndarray when available
 
         self._start()
 
     def _start(self):
-        self.cap = cv2.VideoCapture(self.src, cv2.CAP_DSHOW)
+        # Use a cross-platform backend
+        try:
+            self.cap = cv2.VideoCapture(self.src, cv2.CAP_ANY)
+        except Exception:
+            self.cap = cv2.VideoCapture(self.src)
         if self.width:
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         if self.height:
@@ -46,11 +52,18 @@ class Camera:
             if ret:
                 with self.lock:
                     self.frame = buf.tobytes()
+                    self._frame_np = frame
             time.sleep(target_delay)
 
     def get_jpeg(self):
         with self.lock:
             return self.frame
+
+    def get_bgr(self):
+        with self.lock:
+            if self._frame_np is None:
+                return None
+            return self._frame_np.copy()
 
     def stop(self):
         self.running = False

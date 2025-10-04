@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Live Camera Stream</title>
+  <title>Live Camera (WebRTC A/V)</title>
   <style>
     :root{color-scheme:light dark}
     body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0;padding:2rem;display:grid;place-items:center;min-height:100dvh;background:#111;color:#eee}
@@ -19,7 +19,7 @@
 </head>
 <body>
   <div class="card">
-    <h1>Live Camera Stream</h1>
+  <h1>Live Camera (WebRTC A/V)</h1>
     <div class="row">
       <div>
         <label>Source index:</label>
@@ -30,17 +30,21 @@
         <small>Tip: If you see a black image, try different source indices (0, 1, 2...)</small>
       </div>
     </div>
-    <img id="stream" src="/stream" alt="Live stream" />
+  <!-- WebRTC video output -->
+  <video id="webrtcVideo" autoplay playsinline muted style="display:block;margin:0.5rem auto;max-width:100%;border-radius:8px;background:#000"></video>
     <hr style="border-color:#333;margin:1rem 0;">
     <div class="row" style="flex-wrap:wrap;gap:.5rem;justify-content:center">
-      <button onclick="sendCmd('Front')">Front</button>
+  <button onclick="enableAV()" title="Start WebRTC audio+video">Start AV</button>
+  <button onclick="sendCmd('Front')">Front</button>
       <button onclick="sendCmd('Back')">Back</button>
       <button onclick="sendCmd('Left')">Left</button>
       <button onclick="sendCmd('Right')">Right</button>
       <button onclick="sendCmd('Stop')">Stop</button>
       <button onclick="sendCmd('Handshake')">Handshake</button>
+      <button onclick="enableAV()" title="Start WebRTC audio+video">Enable AV</button>
     </div>
     <div id="cmdStatus" style="text-align:center;min-height:1.2rem;opacity:.85;margin-top:.25rem"></div>
+    <video id="webrtcVideo" autoplay playsinline muted style="display:block;margin:0.5rem auto;max-width:100%;border-radius:8px"></video>
     <hr style="border-color:#333;margin:1rem 0;">
     <div class="row" style="flex-wrap:wrap;gap:.75rem;">
       <div style="flex:1 1 320px;display:flex;gap:.5rem;align-items:center;">
@@ -54,11 +58,10 @@
   <script>
     function switchSrc(){
       const idx = document.getElementById('src').value;
-      const img = document.getElementById('stream');
-      // A simple approach: reload the page after calling a backend endpoint.
+      // Call backend endpoint; WebRTC track will use new frames automatically.
       fetch('/switch?src=' + encodeURIComponent(idx))
-        .then(()=>{ img.src = '/stream?ts=' + Date.now(); })
-        .catch(()=>{ img.src = '/stream?ts=' + Date.now(); });
+        .then(()=>{})
+        .catch(()=>{});
     }
 
     function sendMsg(){
@@ -102,6 +105,48 @@
       }).catch(() => {
         status.textContent = 'Network error';
       });
+    }
+
+    let pc;
+    async function enableAV(){
+      const video = document.getElementById('webrtcVideo');
+      try{
+        if (pc) return; // already started
+        pc = new RTCPeerConnection({
+          iceServers: [ { urls: 'stun:stun.l.google.com:19302' } ]
+        });
+        const remote = new MediaStream();
+        pc.ontrack = (ev) => {
+          if (ev.streams && ev.streams[0]) {
+            video.srcObject = ev.streams[0];
+          } else {
+            remote.addTrack(ev.track);
+            video.srcObject = remote;
+          }
+        };
+        pc.onconnectionstatechange = () => {
+          const status = document.getElementById('cmdStatus');
+          status.textContent = 'Peer: ' + pc.connectionState;
+        };
+        // Receive-only; explicitly request A/V tracks
+        pc.addTransceiver('audio', { direction: 'recvonly' });
+        pc.addTransceiver('video', { direction: 'recvonly' });
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        const res = await fetch('/rtc/offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sdp: offer.sdp, type: offer.type })
+        });
+        if(!res.ok){
+          throw new Error(await res.text());
+        }
+        const answer = await res.json();
+        await pc.setRemoteDescription(answer);
+      } catch(e){
+        const status = document.getElementById('cmdStatus');
+        status.textContent = 'AV error: ' + (e && e.message ? e.message : e);
+      }
     }
   </script>
 </body>
