@@ -32,6 +32,16 @@
     </div>
     <img id="stream" src="/stream" alt="Live stream" />
     <hr style="border-color:#333;margin:1rem 0;">
+    <div class="row" style="flex-wrap:wrap;gap:.5rem;justify-content:center">
+      <button onclick="sendCmd('Front')">Front</button>
+      <button onclick="sendCmd('Back')">Back</button>
+      <button onclick="sendCmd('Left')">Left</button>
+      <button onclick="sendCmd('Right')">Right</button>
+      <button onclick="sendCmd('Stop')">Stop</button>
+      <button onclick="sendCmd('Handshake')">Handshake</button>
+    </div>
+    <div id="cmdStatus" style="text-align:center;min-height:1.2rem;opacity:.85;margin-top:.25rem"></div>
+    <hr style="border-color:#333;margin:1rem 0;">
     <div class="row" style="flex-wrap:wrap;gap:.75rem;">
       <div style="flex:1 1 320px;display:flex;gap:.5rem;align-items:center;">
         <label for="msg">Send message to server:</label>
@@ -72,6 +82,24 @@
           status.textContent = 'Error: ' + t;
         }
       }).catch((e) => {
+        status.textContent = 'Network error';
+      });
+    }
+
+    function sendCmd(cmd){
+      const status = document.getElementById('cmdStatus');
+      fetch('/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cmd })
+      }).then(async (res) => {
+        if(res.ok){
+          status.textContent = 'Command sent: ' + cmd;
+        } else {
+          const t = await res.text();
+          status.textContent = 'Error: ' + t;
+        }
+      }).catch(() => {
         status.textContent = 'Network error';
       });
     }

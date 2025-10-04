@@ -1,4 +1,5 @@
 from flask import Flask, Response, render_template, request, jsonify
+import os
 from .camera import Camera
 
 app = Flask(__name__)
@@ -62,6 +63,27 @@ def message():
     except Exception:
         pass
     return jsonify({"ok": True})
+
+
+@app.route('/command', methods=['POST'])
+def command():
+    try:
+        data = request.get_json(force=True, silent=False)
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid JSON"}), 400
+
+    cmd = (data or {}).get('cmd')
+    allowed = {"Front", "Back", "Left", "Right", "Stop", "Handshake"}
+    if cmd not in allowed:
+        return jsonify({"ok": False, "error": "Invalid cmd"}), 400
+
+    print(f"[COMMAND] {cmd}")
+    try:
+        import sys
+        sys.stdout.flush()
+    except Exception:
+        pass
+    return jsonify({"ok": True, "cmd": cmd})
     try:
         old.stop()
     except Exception:
@@ -70,5 +92,10 @@ def message():
 
 
 if __name__ == '__main__':
-    # Use 0.0.0.0 to allow LAN access; debug False for camera stability
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    # Configure via env: HOST and PORT; default to localhost:5050 for Windows friendliness
+    host = os.environ.get('HOST', '127.0.0.1')
+    try:
+        port = int(os.environ.get('PORT', '5050'))
+    except ValueError:
+        port = 5050
+    app.run(host=host, port=port, debug=False, threaded=True)
