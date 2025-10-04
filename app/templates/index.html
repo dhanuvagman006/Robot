@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Camera Stream</title>
+  <style>
+    :root{color-scheme:light dark}
+    body{font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0;padding:2rem;display:grid;place-items:center;min-height:100dvh;background:#111;color:#eee}
+    .card{background:#1b1b1b;border:1px solid #333;border-radius:12px;padding:1rem;max-width:920px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+    h1{margin-top:0;font-size:1.25rem;font-weight:600;color:#9ad}
+    img{width:100%;height:auto;border-radius:8px;background:#000}
+    .row{display:flex;gap:.5rem;align-items:center;justify-content:space-between;margin:.5rem 0}
+    label{opacity:.8}
+    input[type="number"]{width:5rem}
+    button{appearance:none;border:1px solid #2f6ea7;background:#224b70;color:#e8f2ff;border-radius:8px;padding:.5rem .8rem;cursor:pointer}
+    button:hover{background:#265981}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Live Camera Stream</h1>
+    <div class="row">
+      <div>
+        <label>Source index:</label>
+        <input id="src" type="number" value="0" min="0" step="1" />
+        <button onclick="switchSrc()">Switch</button>
+      </div>
+      <div>
+        <small>Tip: If you see a black image, try different source indices (0, 1, 2...)</small>
+      </div>
+    </div>
+    <img id="stream" src="/stream" alt="Live stream" />
+    <hr style="border-color:#333;margin:1rem 0;">
+    <div class="row" style="flex-wrap:wrap;gap:.75rem;">
+      <div style="flex:1 1 320px;display:flex;gap:.5rem;align-items:center;">
+        <label for="msg">Send message to server:</label>
+        <input id="msg" type="text" placeholder="Type something..." style="flex:1;min-width:220px;padding:.45rem .6rem;border-radius:6px;border:1px solid #333;background:#111;color:#eee;" />
+        <button onclick="sendMsg()">Submit</button>
+      </div>
+      <div id="status" style="min-height:1.2rem;opacity:.85;"></div>
+    </div>
+  </div>
+  <script>
+    function switchSrc(){
+      const idx = document.getElementById('src').value;
+      const img = document.getElementById('stream');
+      // A simple approach: reload the page after calling a backend endpoint.
+      fetch('/switch?src=' + encodeURIComponent(idx))
+        .then(()=>{ img.src = '/stream?ts=' + Date.now(); })
+        .catch(()=>{ img.src = '/stream?ts=' + Date.now(); });
+    }
+
+    function sendMsg(){
+      const input = document.getElementById('msg');
+      const status = document.getElementById('status');
+      const text = input.value.trim();
+      if(!text){
+        status.textContent = 'Please type a message.';
+        return;
+      }
+      fetch('/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      }).then(async (res) => {
+        if(res.ok){
+          status.textContent = 'Sent!';
+          input.value = '';
+        } else {
+          const t = await res.text();
+          status.textContent = 'Error: ' + t;
+        }
+      }).catch((e) => {
+        status.textContent = 'Network error';
+      });
+    }
+  </script>
+</body>
+</html>
