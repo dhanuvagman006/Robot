@@ -135,7 +135,8 @@ def rtc_offer():
 
     global mic_track
     if mic_track is None:
-        mic_track = MicrophoneAudioTrack()
+        loop = _ensure_rtc_loop()
+        mic_track = MicrophoneAudioTrack(loop=loop)
 
     offer = request.get_json(force=True, silent=False)
     if not offer or 'sdp' not in offer or 'type' not in offer:

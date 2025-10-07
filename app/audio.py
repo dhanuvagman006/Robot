@@ -21,7 +21,7 @@ except Exception:  # pragma: no cover
 class MicrophoneAudioTrack(MediaStreamTrack):
     kind = "audio"
 
-    def __init__(self, sample_rate: int = 48000, channels: int = 1, blocksize: int = 960):
+    def __init__(self, sample_rate: int = 48000, channels: int = 1, blocksize: int = 960, loop: Optional[asyncio.AbstractEventLoop] = None):
         super().__init__()
         self.sample_rate = int(sample_rate)
         self.channels = int(channels)
@@ -29,6 +29,7 @@ class MicrophoneAudioTrack(MediaStreamTrack):
         self._queue = asyncio.Queue(maxsize=10)
         self._ts = 0
         self._stream = None
+        self._loop = loop
 
         if sd:
             self._stream = sd.InputStream(
@@ -45,9 +46,10 @@ class MicrophoneAudioTrack(MediaStreamTrack):
             # Copy to avoid referencing ring buffer memory
             chunk = np.array(indata, copy=True)
             # Drop if queue is full to avoid backpressure
-            if not self._queue.full():
-                # Put without blocking (use loop-safe put_nowait on asyncio.Queue)
-                self._queue.put_nowait(chunk)
+            if self._loop is not None:
+                if not self._queue.full():
+                    # Thread-safe schedule into asyncio loop
+                    self._loop.call_soon_threadsafe(self._queue.put_nowait, chunk)
         except Exception:
             pass
 
@@ -58,7 +60,9 @@ class MicrophoneAudioTrack(MediaStreamTrack):
             data = np.zeros((self.blocksize, self.channels), dtype=np.int16)
         else:
             try:
-                data = await self._queue.get()
+                data = await asyncio.wait_for(self._queue.get(), timeout=self.block_duration * 4)
+            except asyncio.TimeoutError:
+                data = np.zeros((self.blocksize, self.channels), dtype=np.int16)
             except asyncio.CancelledError:
                 raise
 

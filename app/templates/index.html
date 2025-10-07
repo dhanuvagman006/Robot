@@ -31,7 +31,7 @@
       </div>
     </div>
   <!-- WebRTC video output -->
-  <video id="webrtcVideo" autoplay playsinline muted style="display:block;margin:0.5rem auto;max-width:100%;border-radius:8px;background:#000"></video>
+  <video id="webrtcVideo" autoplay playsinline style="display:block;margin:0.5rem auto;max-width:100%;border-radius:8px;background:#000"></video>
     <hr style="border-color:#333;margin:1rem 0;">
     <div class="row" style="flex-wrap:wrap;gap:.5rem;justify-content:center">
   <button onclick="enableAV()" title="Start WebRTC audio+video">Start AV</button>
@@ -124,6 +124,12 @@
             video.srcObject = remote;
           }
         };
+        // User gesture: start playback soon after track arrives
+        video.addEventListener('canplay', () => {
+          if (video.paused) {
+            video.play().catch(()=>{});
+          }
+        });
         pc.onconnectionstatechange = () => {
           const status = document.getElementById('cmdStatus');
           status.textContent = 'Peer: ' + pc.connectionState;
